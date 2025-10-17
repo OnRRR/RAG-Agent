@@ -1,0 +1,5 @@
+﻿__pycache__/
+.rag_venv/
+models/
+.env
+.DS_Store
