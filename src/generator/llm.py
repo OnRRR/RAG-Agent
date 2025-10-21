@@ -88,7 +88,7 @@ class LLMGenerator:
                 },
             ],
         }
-        response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=120)
+        response = requests.post(url, headers=headers, json=payload, timeout=120)
         response.raise_for_status()
         body = response.json()
         return body["choices"][0]["message"]["content"].strip()
@@ -123,4 +123,3 @@ class LLMGenerator:
             "LLM provider not configured; returning top retrieved snippets instead."
             f"{error_note}\n\nQuestion: {query}\n\nSnippets:\n{context_preview}"
         )
-
