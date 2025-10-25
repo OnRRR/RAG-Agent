@@ -57,6 +57,14 @@ class FaissRetriever:
         metadata = dict(result.get("metadata", {}))
         metadata["rank"] = result["rank"]
         metadata["query_index"] = result["query_index"]
+        if result.get("section_name") and "section" not in metadata:
+            metadata["section"] = result["section_name"]
+        if result.get("section_title") and "section_title" not in metadata:
+            metadata["section_title"] = result["section_title"]
+        if result.get("page_start") is not None:
+            metadata.setdefault("page_start", result["page_start"])
+        if result.get("page_end") is not None:
+            metadata.setdefault("page_end", result["page_end"])
         return RetrievedChunk(
             chunk_id=result["chunk_id"],
             document_id=result["document_id"],
@@ -64,4 +72,3 @@ class FaissRetriever:
             score=result["score"],
             metadata=metadata,
         )
-

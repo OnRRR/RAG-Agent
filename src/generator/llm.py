@@ -15,9 +15,13 @@ logger = get_logger(__name__)
 
 
 SYSTEM_PROMPT = (
-    "You are a helpful assistant that answers questions using the provided context. "
-    "Use only the supplied context when forming your answer. "
-    "If the context does not contain the answer, reply with 'I am not sure based on the indexed documents.'."
+    "You are RAG-Agent, an AI specialist tasked with answering questions using the supplied document excerpts only. "
+    "Follow these rules:\n"
+    "1. Read the provided context carefully and gather only the facts that directly relate to the question.\n"
+    "2. Synthesize a concise answer grounded in those facts. If multiple relevant points exist, summarise them clearly.\n"
+    "3. If the context does not contain enough information to answer with confidence, explicitly respond with "
+    "'I am not sure based on the indexed documents.' and offer a brief note about what is missing.\n"
+    "4. Do not invent, assume, or import knowledge that is not present in the context."
 )
 
 
@@ -60,10 +64,21 @@ class LLMGenerator:
     def _select_context(self, chunks: List[RetrievedChunk]) -> str:
         max_chunks = max(1, self.settings.llm_max_context_chunks)
         selected = chunks[:max_chunks]
-        formatted = [
-            f"Source: {chunk.metadata.get('source', 'unknown')}\nSnippet:\n{chunk.text.strip()}"
-            for chunk in selected
-        ]
+        formatted = []
+        for chunk in selected:
+            source = chunk.metadata.get("source", "unknown")
+            title = chunk.metadata.get("title") or chunk.metadata.get("section_title") or "unknown"
+            section = chunk.metadata.get("section") or chunk.metadata.get("section_title") or "section"
+            page_start = chunk.metadata.get("page_start")
+            page_end = chunk.metadata.get("page_end")
+            page_info = ""
+            if page_start and page_end:
+                page_info = f" (pages {page_start}-{page_end})"
+            elif page_start:
+                page_info = f" (page {page_start})"
+            formatted.append(
+                f"Document: {source}\nTitle: {title}\nSection: {section}{page_info}\nSnippet:\n{chunk.text.strip()}"
+            )
         return "\n\n".join(formatted)
 
     def _call_openai(self, query: str, chunks: List[RetrievedChunk]) -> str:

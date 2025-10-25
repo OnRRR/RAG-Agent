@@ -8,7 +8,7 @@ from src.index.faiss_store import FaissDocumentIndex
 from src.utils.logger import get_logger
 
 from .document_loader import DocumentLoader
-from .models import DocumentChunk
+from .models import Document, DocumentChunk, DocumentSection
 from .text_splitter import TextChunker
 
 logger = get_logger(__name__)
@@ -54,11 +54,39 @@ class IngestionPipeline:
 
         self.ingest_paths(paths)
 
-    def _chunk_documents(self, documents) -> list[DocumentChunk]:
+    def _chunk_documents(self, documents: Iterable[Document]) -> list[DocumentChunk]:
         chunk_collection: list[DocumentChunk] = []
         for document in documents:
-            chunk_texts = self.chunker.split(document.text)
-            for idx, text in enumerate(chunk_texts):
-                chunk_collection.append(DocumentChunk.from_document(document, text, idx))
-        return chunk_collection
+            page_count = document.metadata.get("page_count")
+            if isinstance(page_count, int):
+                fallback_page_end = page_count
+            else:
+                fallback_page_end = 1
 
+            sections = document.sections or [
+                DocumentSection(
+                    name="body",
+                    title=document.title or "Body",
+                    text=document.text,
+                    page_start=1,
+                    page_end=fallback_page_end,
+                    metadata={"section_type": "body"},
+                )
+            ]
+
+            for section_index, section in enumerate(sections):
+                chunk_texts = self.chunker.split(section.text)
+                for chunk_index, text in enumerate(chunk_texts):
+                    if not text.strip():
+                        continue
+                    extra_metadata = dict(section.metadata)
+                    chunk = DocumentChunk.from_section(
+                        document,
+                        section,
+                        text,
+                        section_index=section_index,
+                        chunk_index=chunk_index,
+                        extra_metadata=extra_metadata,
+                    )
+                    chunk_collection.append(chunk)
+        return chunk_collection

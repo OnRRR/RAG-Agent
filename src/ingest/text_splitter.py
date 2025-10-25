@@ -5,41 +5,49 @@ from typing import Iterable, List
 
 
 class TextChunker:
-    """Splits raw text into overlapping chunks that work well with embedding models."""
+    """Splits text into overlapping token windows while preserving section boundaries."""
 
-    def __init__(self, *, chunk_size: int = 512, chunk_overlap: int = 128):
-        if chunk_size <= 0:
-            raise ValueError("chunk_size must be positive")
-        if chunk_overlap < 0:
-            raise ValueError("chunk_overlap must be non-negative")
-        if chunk_overlap >= chunk_size:
-            raise ValueError("chunk_overlap must be smaller than chunk_size")
+    def __init__(self, *, chunk_size_tokens: int = 400, chunk_overlap_tokens: int = 80):
+        if chunk_size_tokens <= 0:
+            raise ValueError("chunk_size_tokens must be positive")
+        if chunk_overlap_tokens < 0:
+            raise ValueError("chunk_overlap_tokens must be non-negative")
+        if chunk_overlap_tokens >= chunk_size_tokens:
+            raise ValueError("chunk_overlap_tokens must be smaller than chunk size")
 
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
+        self.chunk_size_tokens = chunk_size_tokens
+        self.chunk_overlap_tokens = chunk_overlap_tokens
 
     def split(self, text: str) -> List[str]:
-        # Collapse multiple blank lines and trim whitespace so chunking is consistent.
-        cleaned = self._normalise_whitespace(text)
-        if not cleaned:
+        collapsed = self._normalise_whitespace(text)
+        if not collapsed:
+            return []
+
+        tokens = collapsed.split()
+        if not tokens:
             return []
 
         chunks: List[str] = []
-        start = 0
-        while start < len(cleaned):
-            end = start + self.chunk_size
-            chunk_text = cleaned[start:end]
-            chunks.append(chunk_text.strip())
-            start += self.chunk_size - self.chunk_overlap
-        return [chunk for chunk in chunks if chunk]
+        step = self.chunk_size_tokens - self.chunk_overlap_tokens
+        for start in range(0, len(tokens), step):
+            window = tokens[start : start + self.chunk_size_tokens]
+            if not window:
+                continue
+            chunk_text = self._restore_spacing(window)
+            chunks.append(chunk_text)
+        return chunks
 
     @staticmethod
     def _normalise_whitespace(text: str) -> str:
-        without_extra_spaces = re.sub(r"[ \t]+", " ", text)
-        return re.sub(r"\n{3,}", "\n\n", without_extra_spaces).strip()
+        text = re.sub(r"[ \t]+", " ", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        return text.strip()
+
+    @staticmethod
+    def _restore_spacing(tokens: List[str]) -> str:
+        return " ".join(tokens)
 
 
 def chunk_documents(chunker: TextChunker, texts: Iterable[str]) -> List[List[str]]:
     """Convenience helper for splitting multiple documents in one call."""
     return [chunker.split(text) for text in texts]
-

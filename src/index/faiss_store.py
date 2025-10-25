@@ -65,6 +65,10 @@ class FaissDocumentIndex:
             "document_id": chunk.document_id,
             "chunk_id": chunk.chunk_id,
             "text": chunk.text,
+            "section_name": chunk.section_name,
+            "section_title": chunk.section_title,
+            "page_start": chunk.page_start,
+            "page_end": chunk.page_end,
             "metadata": chunk.metadata,
         }
 
